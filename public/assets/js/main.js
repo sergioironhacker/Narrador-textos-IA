@@ -1,9 +1,9 @@
-let translateButton = document.querySelector("#translateButton");
+let sendButton = document.querySelector("#sendButton");
 
-translateButton.addEventListener("click", async () => {
+sendButton.addEventListener("click", async () => {
     let inputText = document.querySelector("#inputText");
     const text = inputText.value.trim();
-    const targetLang = document.querySelector("#targetLang").value;
+    const targetSpeaker = document.querySelector("#targetSpeaker").value;
 
     if (!text) return false;
 
@@ -17,18 +17,40 @@ translateButton.addEventListener("click", async () => {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
     try {
-        const response = await fetch("/api/traducir", {
+        const response = await fetch("/api/speak", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text, targetLang })
+            body: JSON.stringify({ text, speaker: targetSpeaker })
         });
 
-        const data = await response.json();
+        // ✅ Verificar si la respuesta fue exitosa
+        if (!response.ok) {
+            console.error("Error del servidor:", await response.text());
+            return;
+        }
 
-        // Mostrar traducción en el chat, no en alert
+        // ✅ Verificar que el contenido sea audio
+        const contentType = response.headers.get("Content-Type");
+        if (!contentType || !contentType.includes("audio")) {
+            console.error("La respuesta no es un archivo de audio");
+            console.log(await response.text()); // Para depuración
+            return;
+        }
+
+        // ✅ Crear blob y URL del audio
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        // Mensaje del bot con audio
         const botMessage = document.createElement("div");
         botMessage.className = "chat__message chat__message--bot";
-        botMessage.textContent = data.translatedText;
+        botMessage.innerHTML = `
+            <audio controls>
+                <source src="${audioUrl}" type="audio/mpeg">
+                Tu navegador no puede reproducir audios
+            </audio>
+        `;
+
         messagesContainer.appendChild(botMessage);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
 

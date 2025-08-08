@@ -7,46 +7,48 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Servir archivos estáticos desde la carpeta "public"
 app.use("/", express.static("public"));
 
+// Parsear JSON y formularios
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Configuración de OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-app.post('/api/traducir', async (req, res) => {
-  const { text, targetLang } = req.body;
+// Endpoint para generar audio
+app.post('/api/speak', async (req, res) => {
+  const { text, speaker } = req.body;
 
-  // Pasamos targetLang a minúsculas para evitar problemas
-  const cleanLang = targetLang.toLowerCase();
-
-  const promtSystem1 = "Eres un traductor profesional";
-  const promtSystem2 = "Solo puedes responder con una traducción directa del texto que te escriba el usuario. Cualquier otra respuesta está prohibida.";
-  const promtUser = `Traduce el siguiente texto al ${cleanLang}: ${text}`;
+  if (!text) {
+    return res.status(400).json({ error: "Debes mandar un texto" });
+  }
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        { role: "system", content: promtSystem1 },
-        { role: "system", content: promtSystem2 },
-        { role: "user", content: promtUser },
-      ],
-      max_tokens: 500
+    // Generar el audio con OpenAI TTS
+    const completion = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: speaker,
+      input: text
     });
 
-    const translatedText = completion.choices[0].message.content.trim();
+    // Convertir a buffer
+    const audioBuffer = Buffer.from(await completion.arrayBuffer());
 
-    return res.status(200).json({ translatedText });
+    // Devolver el audio directamente
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.send(audioBuffer);
 
   } catch (error) {
-    console.error("Error en la traducción:", error);
-    return res.status(500).json({ error: "Error al traducir" });
+    console.error("Error al generar el audio:", error);
+    return res.status(500).json({ error: "Error al generar el audio" });
   }
 });
 
+// Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor escuchando en http://localhost:${PORT} 🚀`);
 });
