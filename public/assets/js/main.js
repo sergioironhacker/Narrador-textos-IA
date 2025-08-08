@@ -1,4 +1,5 @@
 let sendButton = document.querySelector("#sendButton");
+const messagesContainer = document.querySelector(".chat__messages");
 
 sendButton.addEventListener("click", async () => {
     let inputText = document.querySelector("#inputText");
@@ -11,9 +12,14 @@ sendButton.addEventListener("click", async () => {
     const userMessage = document.createElement("div");
     userMessage.className = "chat__message chat__message--user";
     userMessage.textContent = text;
-
-    const messagesContainer = document.querySelector(".chat__messages");
     messagesContainer.appendChild(userMessage);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Crear mensaje de "cargando..."
+    const loading = document.createElement("div");
+    loading.className = "chat__message chat__message--bot";
+    loading.textContent = "Generando audio...";
+    messagesContainer.appendChild(loading);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
     try {
@@ -23,39 +29,34 @@ sendButton.addEventListener("click", async () => {
             body: JSON.stringify({ text, speaker: targetSpeaker })
         });
 
-        // ✅ Verificar si la respuesta fue exitosa
         if (!response.ok) {
             console.error("Error del servidor:", await response.text());
+            loading.textContent = "Error al generar el audio.";
             return;
         }
 
-        // ✅ Verificar que el contenido sea audio
         const contentType = response.headers.get("Content-Type");
         if (!contentType || !contentType.includes("audio")) {
             console.error("La respuesta no es un archivo de audio");
-            console.log(await response.text()); // Para depuración
+            loading.textContent = "Respuesta inválida del servidor.";
+            console.log(await response.text());
             return;
         }
 
-        // ✅ Crear blob y URL del audio
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
 
-        // Mensaje del bot con audio
-        const botMessage = document.createElement("div");
-        botMessage.className = "chat__message chat__message--bot";
-        botMessage.innerHTML = `
+        // Reemplazar mensaje de cargando con el reproductor de audio
+        loading.innerHTML = `
             <audio controls>
                 <source src="${audioUrl}" type="audio/mpeg">
-                Tu navegador no puede reproducir audios
+                Tu navegador no puede reproducir audios.
             </audio>
         `;
 
-        messagesContainer.appendChild(botMessage);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
     } catch (error) {
         console.error("Error:", error);
+        loading.textContent = "Error de conexión.";
     }
 
     inputText.value = "";
